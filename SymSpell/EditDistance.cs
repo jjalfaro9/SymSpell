@@ -33,4 +33,8 @@ public class EditDistance {
     public int Compare(string string1, string string2, int maxDistance) {
         return (int)this.distanceComparer.Distance(string1, string2, maxDistance);
     }
+
+    public double distance(string s1, string s2) {
+        return this.distanceComparer.Distance(s1, s2);
+    }
 }
