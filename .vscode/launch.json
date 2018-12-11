@@ -11,7 +11,9 @@
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
             "program": "${workspaceFolder}/SymSpell.Riley/bin/Debug/netcoreapp2.2/Riley.dll",
-            "args": ["../../vecmap/data/embeddings/en.emb.txt", "../../vecmap/data/embeddings/es.emb.txt", "1", "en-es.orthographic.txt"],
+            // "args": ["${workspaceFolder}/SymSpell.Riley/en.txt", "${workspaceFolder}/SymSpell.Riley/es.txt", "1", "test.txt"],
+            // "args": ["../../vecmap/data/embeddings/en.emb.txt", "../../vecmap/data/embeddings/es.emb.txt", "1", "en-es.orthographic.txt"],
+            "args": ["${workspaceFolder}/SymSpell.Riley/en.words.txt", "${workspaceFolder}/SymSpell.Riley/es.words.txt", "1", "test.txt"],
             "cwd": "${workspaceFolder}/SymSpell.Riley",
             // For more information about the 'console' field, see https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md#console-terminal-window
             "console": "internalConsole",

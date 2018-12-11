@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 namespace symspell.Riley {
     public class WordReader {
 
-        private static HashSet<string> get_words(string path) {
+        private static HashSet<string> get_words_reg_ex(string path) {
             HashSet<string> words = new HashSet<string>();
             int wc = 0;
             string pattern = @"[^\W\d](\w|[-'.//]{1,2}(?=\w))*";
@@ -25,8 +25,25 @@ namespace symspell.Riley {
             
             return words;
         }
-        public static (HashSet<string>, HashSet<string>) get_src_trg_words(string src_path, string trg_path) {
-            return (get_words(src_path), get_words(trg_path));
+
+        public static (HashSet<string>, Dictionary<string, int>) get_words(string path) {
+            HashSet<string> words = new HashSet<string>();
+            int wc = 0;
+            Dictionary<string, int> wordToIndex = new Dictionary<string, int>();
+            
+            foreach (string line in File.ReadAllLines(path)) {
+                var x = line.Split('\t');
+                wc += 1;
+                if (words.Add(x[0])) {
+                    wordToIndex.Add(x[0], Int32.Parse(x[1]));
+                }
+                // what to do about words that are repeated ? 
+            }
+            Console.WriteLine("path : " + path);
+            Console.WriteLine("wc : " + wc);
+            Console.WriteLine("set size : " + words.Count);
+            Console.WriteLine("dictionary size :  " + wordToIndex.Count);
+            return (words, wordToIndex);
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Linq;
+using System.Text;
 
 
 namespace symspell.Riley {
@@ -23,6 +24,10 @@ namespace symspell.Riley {
             public bool isSource() { return false; }
 
             public string getValue() { return s; }
+
+            public override string ToString(){
+                return s;
+            }  
         }
 
         class Source : Vocab {
@@ -35,6 +40,10 @@ namespace symspell.Riley {
             public bool isSource() { return true; }
 
             public string getValue() { return s; }
+
+            public override string ToString() {
+                return s;
+            }  
         }
 
         const int defaultMaxEditDistance = 2;
@@ -55,21 +64,6 @@ namespace symspell.Riley {
             this.compactLevel = compactLevel;
             this.compactMask = (uint.MaxValue >> (3 + this.compactLevel)) << 2;
             this.deletesToKeyWords = new Dictionary<int, HashSet<Vocab>>();
-        }
-
-        //check whether all delete chars are present in the suggestion prefix in correct order, otherwise this is just a hash collision
-        private bool DeleteInSuggestionPrefix(string delete, int deleteLen, string suggestion, int suggestionLen)
-        {
-            if (deleteLen == 0) return true;
-            if (prefixLength < suggestionLen) suggestionLen = prefixLength;
-            int j = 0;
-            for (int i = 0; i < deleteLen; i++)
-            {
-                char delChar = delete[i];
-                while (j < suggestionLen && delChar != suggestion[j]) j++;
-                if (j == suggestionLen) return false;
-            }
-            return true;
         }
 
         //inexpensive and language independent: only deletes, no transposes + replaces + inserts
@@ -177,17 +171,12 @@ namespace symspell.Riley {
                                             || (s[sLen - min] != t[tLen - min - 1]))))
                         { continue; }
                         else {
-                            if (!DeleteInSuggestionPrefix(t, tLen, s, sLen)) { continue; } // check for hashSet2 thingy
                             distance = distanceComparer.Compare(s, t, k);
                             if (distance < 0) { continue; }
-                        }
-
-                        if (distance <= k) {
-                            // we good to add these two as a pair! 
-                            // should probably see if the list is going to be unique! 
-                            similar.Add((s, t));
-                        }
-                                
+                        }       
+                    }
+                    if (distance <= k) {
+                        similar.Add((s, t));
                     }
                 }
             }
@@ -202,17 +191,25 @@ namespace symspell.Riley {
             foreach (string src in source) {
                 add_values_to_dictionary(EditsPrefix(src), new Source(src));
             }
-
+            
             HashSet<(string, string)> pairsSharingBins = new HashSet<(string, string)>();
             foreach (HashSet<Vocab> collisions in this.deletesToKeyWords.Values.Where(s => s.Count > 1)) {
             // foreach (Vocab[] collisions in this.deletesToKeyWords.Values.Where(l => l.Length > 1)) {
                 var groups = collisions.GroupBy(x => x.isSource(), x => x.getValue())
                                         .ToDictionary(g => g.Key, g => g.ToHashSet());
                // but what is going on with the other stuff?
-                HashSet<string> s;
-                HashSet<string> t;
-                if (groups.TryGetValue(true, out s) && groups.TryGetValue(false, out t)) {
-                    pairsSharingBins.UnionWith(get_pairs(s, t, maxEditDistance));
+                HashSet<string> lan1;
+                HashSet<string> lan2;
+                if (groups.TryGetValue(true, out lan1) && groups.TryGetValue(false, out lan2)) {
+                    HashSet<(string, string)> pairs = get_pairs(lan1, lan2, maxEditDistance);
+                    foreach ((string, string) p in pairs) {
+                        if (source.Contains(p.Item1) && target.Contains(p.Item2)) {
+                            pairsSharingBins.Add(p);
+                        } else {
+                            Console.WriteLine("wtf??? - " + p);
+                        }
+                    }
+                    // pairsSharingBins.UnionWith(get_pairs(lan1, lan2, maxEditDistance));
                 }
             }
 
@@ -244,24 +241,32 @@ namespace symspell.Riley {
 
             var r = new Riley();
 
-            var words = WordReader.get_src_trg_words(args[0], args[1]);
-            var src_trg_pairs = r.generate_src_trg_pairs(words.Item2, words.Item1, Int32.Parse(args[2]));
+            var source = WordReader.get_words(args[0]);
+            var target = WordReader.get_words(args[1]);
+
+            var src_trg_pairs = r.generate_src_trg_pairs(target.Item1, source.Item1, Int32.Parse(args[2]));
             Console.WriteLine("src_trg_pairs size : " + src_trg_pairs.Count);
 
             var src_trg_NL_trips = r.generate_NL(src_trg_pairs);
             List<(string, string, double, double)> src_trg_NL_sim_quarts = r.generate_orthographic_similarity_score(src_trg_NL_trips);
-            using (StreamWriter sw = new StreamWriter(args[3])) {
-                sw.WriteLine("src,trg,NL,Sim_Score");
+            FileStream fs = new FileStream(args[3], FileMode.Create);
+            int notInSrc = 0; int notInTrg = 0; 
+            using (StreamWriter sw = new StreamWriter(fs, Encoding.UTF8)) {
+                sw.WriteLine("src\ttrg\tNL\tSim_Score\tsrc_idx\ttrg_idx");
                 foreach ((string, string, double, double) data in src_trg_NL_sim_quarts) {
-                    sw.WriteLine(data.Item1 + "," + data.Item2 + "," + data.Item3 + "," + data.Item4);
+                    int src_idx = source.Item2[data.Item1];
+                    int trg_idx = target.Item2[data.Item2];
+                    
+                    sw.WriteLine(data.Item1 + "\t" + data.Item2 + "\t" + data.Item3 + "\t" + data.Item4
+                            + "\t" + src_idx + "\t" + trg_idx);
+                    if (!source.Item1.Contains(data.Item1)) { notInSrc += 1;}
+                    if (!target.Item1.Contains(data.Item2)) { notInTrg += 1; }
                 }
                 sw.Flush();
                 sw.Close();
             }
-        
-
-            // File.WriteAllLines(args[3], src_trg_NL_sim_quarts); // iffy lol
-
+            Console.WriteLine("notInSrc : " + notInSrc);
+            Console.WriteLine("Not in trg : " + notInTrg);
             Console.WriteLine("Hola mi mundo, k lo k!");
             
             
